@@ -10,10 +10,10 @@ data Options = Options { openChar::Char, closeChar::Char }
 trim = f . f where f = reverse . (dropWhile isSpace)
 
 instance Show Ast where
-  show (Ast indent begin args end open close) =
+  show (Ast indent begin items end open close) =
     let indent2 = replicate ((length indent) + (length begin)) ' ' in
       indent ++ begin ++ [open, ' ']
-        ++ (concat $ intersperse ("\n" ++ indent2 ++ ", ") (map trim $ args)) ++ "\n"
+        ++ (concat $ intersperse ("\n" ++ indent2 ++ ", ") (map trim $ items)) ++ "\n"
         ++ indent2 ++ [close] ++ end
 
 p1 <++> p2 = do
@@ -52,10 +52,10 @@ pWholething opts = do
   indent <- pIndent
   begin <- many $ noneOf [openChar opts]
   char $ openChar opts
-  args <- pItems opts
+  items <- pItems opts
   char $ closeChar opts
   end <- many anyChar
-  return $ Ast indent begin args end (openChar opts) (closeChar opts)
+  return $ Ast indent begin items end (openChar opts) (closeChar opts)
 
 main = do
   c <- getContents
