@@ -5,14 +5,16 @@ import Data.Char (isSpace)
 
 data Ast = Ast String String [String] String Char Char
 
+data Options = Options { openChar::Char, closeChar::Char }
+
 trim = f . f where f = reverse . (dropWhile isSpace)
 
 instance Show Ast where
-  show (Ast indent begin args end openChar closeChar) =
+  show (Ast indent begin args end open close) =
     let indent2 = replicate ((length indent) + (length begin)) ' ' in
-      indent ++ begin ++ [openChar, ' ']
+      indent ++ begin ++ [open, ' ']
         ++ (concat $ intersperse ("\n" ++ indent2 ++ ", ") (map trim $ args)) ++ "\n"
-        ++ indent2 ++ [closeChar] ++ end
+        ++ indent2 ++ [close] ++ end
 
 p1 <++> p2 = do
  a <- p1
@@ -21,39 +23,39 @@ p1 <++> p2 = do
 
 pIndent = many $ char ' '
 
-pInnerJunk openChar closeChar = many1 $ noneOf [openChar, closeChar]
-pOuterJunk openChar closeChar = many1 $ noneOf [openChar, closeChar, ',']
+pInnerJunk opts = many1 $ noneOf [openChar opts, closeChar opts]
+pOuterJunk opts = many1 $ noneOf [openChar opts, closeChar opts, ',']
 
-pParen openChar closeChar =
-  string [openChar]
-  <++> (option "" $ pInner openChar closeChar)
-  <++> string [closeChar]
+pParen opts =
+  string [openChar opts]
+  <++> (option "" $ pInner opts)
+  <++> string [closeChar opts]
 
-pJunkWithParen openChar closeChar =
-  (option "" $ pInnerJunk openChar closeChar)
-  <++> (pParen openChar closeChar)
-  <++> (option "" $ pInnerJunk openChar closeChar)
+pJunkWithParen opts =
+  (option "" $ pInnerJunk opts)
+  <++> (pParen opts)
+  <++> (option "" $ pInnerJunk opts)
 
-pArgWithParen openChar closeChar  =
-  (option "" $ pOuterJunk openChar closeChar)
-  <++> (pParen openChar closeChar)
-  <++> (option "" $ pOuterJunk openChar closeChar)
+pArgWithParen opts  =
+  (option "" $ pOuterJunk opts)
+  <++> (pParen opts)
+  <++> (option "" $ pOuterJunk opts)
 
-pInner openChar closeChar = liftM concat $ many $ try (pJunkWithParen openChar closeChar)
-                                                  <|> pInnerJunk openChar closeChar
-pItem openChar closeChar = liftM concat $ many $ try (pArgWithParen openChar closeChar)
-                                                     <|> pOuterJunk openChar closeChar
+pInner opts = liftM concat $ many $ try (pJunkWithParen opts)
+                                    <|> pInnerJunk opts
+pItem opts = liftM concat $ many $ try (pArgWithParen opts)
+                                   <|> pOuterJunk opts
 
-pItems openChar closeChar = (pItem openChar closeChar) `sepBy` (string ",")
+pItems opts = (pItem opts) `sepBy` (string ",")
 
-pWholething openChar closeChar = do
+pWholething opts = do
   indent <- pIndent
-  begin <- many $ noneOf [openChar]
-  char openChar
-  args <- pItems openChar closeChar
-  char closeChar
+  begin <- many $ noneOf [openChar opts]
+  char $ openChar opts
+  args <- pItems opts
+  char $ closeChar opts
   end <- many anyChar
-  return $ Ast indent begin args end openChar closeChar
+  return $ Ast indent begin args end (openChar opts) (closeChar opts)
 
 main = do
   c <- getContents
@@ -65,6 +67,6 @@ main = do
                         '['       -> ']'
                         otherwise -> '}'
       in
-        case parse (pWholething openChar closeChar) "(stdin)" c of
+        case parse (pWholething (Options { openChar = openChar, closeChar = closeChar })) "(stdin)" c of
           Left err -> print err
           Right ast -> putStr $ show ast
